@@ -5,11 +5,11 @@ const app = express();
 const port = 3000;
 
 const pool = new Pool({
-    user: 'diagnostics_wisecellas',
-    host: 'vss11q.h.filess.io',
-    database: 'diagnostics_wisecellas',
-    password: '21f00fb5fda6d791fd3a2f7fa1215e601f55be99',
-    port: 5434
+    user: 'mynewuser',
+    host: '91.229.91.103',
+    database: 'diag',
+    password: 'mypassword',
+    port: 5432
 });
 
 pool.connect((err, client, release) => {
@@ -114,13 +114,15 @@ app.delete('/api/:request', async (req, res) => {
 // Authentication endpoint
 app.post('/api/auth', async (req, res) => {
     const { username, password } = req.body;
-    console.log('Auth request for username:', username);
+    console.log('Auth request for username:', username, password);
 
     try {
         const user = await checkAuth(username, password);
         if (!user) {
+            console.log('wrong credantials')
             return res.status(401).json({ error: 'Invalid credentials' });
         }
+        console.log(user)
         res.json({ role: user.role, userId: user.id });
     } catch (err) {
         console.error('Auth error:', err);
