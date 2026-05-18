@@ -31,7 +31,7 @@ app.use(express.json());
 // Health check endpoint for Vercel
 app.get('/api/health', async (req, res) => {
     try {
-        const client = await getConnection();
+        const client = await pool.connect();;
         await client.query('SELECT NOW()');
         client.release();
         res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -41,14 +41,15 @@ app.get('/api/health', async (req, res) => {
     }
 });
 
-async function getConnection() {
-    try {
-        return await getConnection();
-    } catch (err) {
-        console.error('Failed to connect to database:', err);
-        throw new Error('Database connection failed');
+pool.connect((err, client, release) => {
+    if (err) {
+        console.error('Initial database connection failed:', err.message);
+        console.error('Will retry on each request...');
+    } else {
+        console.log('Connected to PostgreSQL database');
+        release();
     }
-}
+});
 
 app.delete('/api/:request', async (req, res) => {
     const { request } = req.params;
@@ -59,7 +60,7 @@ app.delete('/api/:request', async (req, res) => {
     console.log("DELETE request for table: ", request)
     let client;
     try {
-        client = await getConnection();
+        client = await pool.connect();;
         await client.query('BEGIN')
         switch (request) {
             case "users":
@@ -168,7 +169,7 @@ app.post('/api/:request', async (req, res) => {
 
     switch (request) {
         case "edit_user":
-            client = await getConnection();
+            client = await pool.connect();;
             try {
                 console.log(data)
                 const { id, username, password, name, birth_date, gender, role } = data;
@@ -205,7 +206,7 @@ app.post('/api/:request', async (req, res) => {
             }
             break;
         case "add_user":
-            client = await getConnection();
+            client = await pool.connect();;
             try {
                 console.log(data)
                 const { id, username, password, name, role_id, birth_date, gender } = data;
@@ -261,7 +262,7 @@ app.post('/api/:request', async (req, res) => {
             }
             break;
         case "add_disease":
-            client = await getConnection();
+            client = await pool.connect();;
             try {
                 console.log(data)
                 const { id, name } = data;
@@ -297,7 +298,7 @@ app.post('/api/:request', async (req, res) => {
 
             break;
         case "add-ref-group":
-            client = await getConnection();
+            client = await pool.connect();;
             try {
                 console.log(data)
                 const { id, name, age_min, age_max, sample_size } = data;
@@ -334,7 +335,7 @@ app.post('/api/:request', async (req, res) => {
             }
             break;
         case "add-ref-metric":
-            client = await getConnection();
+            client = await pool.connect();;
             try {
                 console.log(data)
                 const { id, metric_id, reference_group_id, p5, p50, p95, std_dev } = data;
@@ -373,7 +374,7 @@ app.post('/api/:request', async (req, res) => {
             }
             break;
         case "add_metric":
-            client = await getConnection();
+            client = await pool.connect();;
             try {
                 console.log(data)
                 const { id, name, unit } = data;
@@ -416,7 +417,7 @@ app.post('/api/:request', async (req, res) => {
         case "update_examination_session":
             const { examination_session_id, session_metrics, metric_analysis_results, examination_session } = req.body;
             try {
-                client = await getConnection();
+                client = await pool.connect();;
                 await client.query('BEGIN');
 
                 const disease_id = examination_session[0].disease_id;
@@ -491,7 +492,7 @@ app.post('/api/:request', async (req, res) => {
 });
 
 async function addNewExaminationSession(data, req, res) {
-    let client = await getConnection();
+    let client = await pool.connect();;
     try {
         const { doctor_id, patient_id, session_metrics } = data;
 
@@ -556,10 +557,10 @@ async function addNewExaminationSession(data, req, res) {
     }
 }
 async function updateWeightRow(data, req, res) {
-    let client = await getConnection();
+    let client = await pool.connect();;
     try {
         console.log(data)
-        const { old_disease_id, old_metric_id, disease_id, metric_id, weight } = data;
+        const { old_disease_id, old_metric_id, disease_id, metric_id, weight, weight_lower } = data;
         // console.log(weights)
         // const { disease_id, metric_id, weight } = weights;
         // console.log(disease_id, metric_id, weight);
@@ -573,19 +574,20 @@ async function updateWeightRow(data, req, res) {
             await client.query(`
                 UPDATE diag.disease_metric_weights 
                 SET weight = $1,
-                disease_id = $2,
-                metric_id = $3 
-                WHERE disease_id = $4 AND metric_id = $5`,
-                [weight, disease_id, metric_id, old_disease_id, old_metric_id]);
+                weight_lower = $2,
+                disease_id = $3,
+                metric_id = $4 
+                WHERE disease_id = $5 AND metric_id = $6`,
+                [weight, weight_lower, disease_id, metric_id, old_disease_id, old_metric_id]);
 
         }
         else {
             console.log('adding');
             await client.query(`
                 INSERT INTO diag.disease_metric_weights 
-                (disease_id, metric_id, weight)
-                VALUES ($1, $2, $3)`,
-                [disease_id, metric_id, weight]);
+                (disease_id, metric_id, weight, weight_lower)
+                VALUES ($1, $2, $3, $4)`,
+                [disease_id, metric_id, weight, weight_lower]);
         }
         // if (numOfExistentRows > 0) {
 
@@ -615,7 +617,7 @@ async function updateWeightRow(data, req, res) {
     }
 }
 async function updateSeverityRow(data, req, res) {
-    let client = await getConnection();
+    let client = await pool.connect();;
     try {
         console.log(data)
         // const {id, Tmax, Tmin, C} = data;
@@ -874,7 +876,8 @@ async function getRowData(tableName, id) {
                 SELECT 
                     dmw.disease_id as "disease_id",
                     dmw.metric_id as "metric_id",
-                    dmw.weight as "w"
+                    dmw.weight as "w",
+                    dmw.weight_lower as "w_l"
                 FROM diag.disease_metric_weights dmw
             `;
             let params = [];
@@ -890,7 +893,8 @@ async function getRowData(tableName, id) {
             SELECT 
                 dmw.disease_id as "disease_id",
                 dmw.metric_id as "metric_id",
-                dmw.weight as "w"
+                dmw.weight as "w",
+                dmw.weight_lower as "w_l"
             FROM diag.disease_metric_weights dmw
             JOIN diag.diseases ON diseases.id = dmw.disease_id
             JOIN diag.metrics ON metrics.id = dmw.metric_id
@@ -1077,7 +1081,8 @@ async function getFullTableData(tableName, id) {
                 SELECT 
                     diseases.name as "Заболевание",
                     metrics.name as "Метрика",
-                    dmw.weight as "Весовой коэффициент"
+                    dmw.weight as "Вес верхнего отклонения",
+                    dmw.weight_lower as "Вес нижнего отклонения"
                 FROM diag.disease_metric_weights dmw
                 JOIN diag.diseases ON diseases.id = dmw.disease_id
                 JOIN diag.metrics ON metrics.id = dmw.metric_id
