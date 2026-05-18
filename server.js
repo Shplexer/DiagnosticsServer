@@ -10,11 +10,18 @@ const pool = new Pool({
     database: process.env.DB_NAME || 'diag',
     password: process.env.DB_PASSWORD || 'mypassword',
     port: parseInt(process.env.DB_PORT || '5432'),
-    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false, // Important for remote DB
+    ssl: process.env.DB_SSL === 'true' ? {
+        rejectUnauthorized: false,  // This accepts self-signed certificates
+        // You can also specify CA if you have one:
+        // ca: process.env.DB_CA_CERT
+    } : false,
     // Serverless optimizations:
-    max: 1, // Limit connections in serverless
+    max: 1,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
+    // Add keepalive to prevent connection drops
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10000
 });
 
 

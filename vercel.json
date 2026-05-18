@@ -12,12 +12,12 @@
       "dest": "server.js"
     }
   ],
-  "env": {
-    "DB_USER": "mynewuser",
-    "DB_HOST": "91.229.91.103",
-    "DB_NAME": "diag",
-    "DB_PASSWORD": "mypassword",
-    "DB_PORT": "5432",
-    "DB_SSL": "true"
-  }
+    "env": {
+        "DB_USER": "mynewuser",
+        "DB_HOST": "91.229.91.103",
+        "DB_NAME": "diag",
+        "DB_PASSWORD": "mypassword",
+        "DB_PORT": "5432",
+        "DB_SSL": "true"
+    }
 }
