@@ -5,24 +5,44 @@ const app = express();
 const port = 3000;
 
 const pool = new Pool({
-    user: 'mynewuser',
-    host: '91.229.91.103',
-    database: 'diag',
-    password: 'mypassword',
-    port: 5432
+    user: process.env.DB_USER || 'mynewuser',
+    host: process.env.DB_HOST || '91.229.91.103',
+    database: process.env.DB_NAME || 'diag',
+    password: process.env.DB_PASSWORD || 'mypassword',
+    port: parseInt(process.env.DB_PORT || '5432'),
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false, // Important for remote DB
+    // Serverless optimizations:
+    max: 1, // Limit connections in serverless
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
 });
 
-pool.connect((err, client, release) => {
-    if (err) {
-        console.error('Error connecting to PostgreSQL:', err.stack);
-        process.exit(1);
-    } else {
-        console.log('Connected to PostgreSQL database');
-        release();
+
+
+app.use(express.json());
+
+// Health check endpoint for Vercel
+app.get('/api/health', async (req, res) => {
+    try {
+        const client = await getConnection();
+        await client.query('SELECT NOW()');
+        client.release();
+        res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+    } catch (err) {
+        console.error('Health check failed:', err);
+        res.status(500).json({ status: 'error', message: err.message });
     }
 });
 
-app.use(express.json());
+async function getConnection() {
+    try {
+        return await getConnection();
+    } catch (err) {
+        console.error('Failed to connect to database:', err);
+        throw new Error('Database connection failed');
+    }
+}
+
 app.delete('/api/:request', async (req, res) => {
     const { request } = req.params;
     const data = req.body
@@ -32,7 +52,7 @@ app.delete('/api/:request', async (req, res) => {
     console.log("DELETE request for table: ", request)
     let client;
     try {
-        client = await pool.connect();
+        client = await getConnection();
         await client.query('BEGIN')
         switch (request) {
             case "users":
@@ -141,7 +161,7 @@ app.post('/api/:request', async (req, res) => {
 
     switch (request) {
         case "edit_user":
-            client = await pool.connect();
+            client = await getConnection();
             try {
                 console.log(data)
                 const { id, username, password, name, birth_date, gender, role } = data;
@@ -178,7 +198,7 @@ app.post('/api/:request', async (req, res) => {
             }
             break;
         case "add_user":
-            client = await pool.connect();
+            client = await getConnection();
             try {
                 console.log(data)
                 const { id, username, password, name, role_id, birth_date, gender } = data;
@@ -234,7 +254,7 @@ app.post('/api/:request', async (req, res) => {
             }
             break;
         case "add_disease":
-            client = await pool.connect();
+            client = await getConnection();
             try {
                 console.log(data)
                 const { id, name } = data;
@@ -270,7 +290,7 @@ app.post('/api/:request', async (req, res) => {
 
             break;
         case "add-ref-group":
-            client = await pool.connect();
+            client = await getConnection();
             try {
                 console.log(data)
                 const { id, name, age_min, age_max, sample_size } = data;
@@ -307,7 +327,7 @@ app.post('/api/:request', async (req, res) => {
             }
             break;
         case "add-ref-metric":
-            client = await pool.connect();
+            client = await getConnection();
             try {
                 console.log(data)
                 const { id, metric_id, reference_group_id, p5, p50, p95, std_dev } = data;
@@ -346,7 +366,7 @@ app.post('/api/:request', async (req, res) => {
             }
             break;
         case "add_metric":
-            client = await pool.connect();
+            client = await getConnection();
             try {
                 console.log(data)
                 const { id, name, unit } = data;
@@ -389,7 +409,7 @@ app.post('/api/:request', async (req, res) => {
         case "update_examination_session":
             const { examination_session_id, session_metrics, metric_analysis_results, examination_session } = req.body;
             try {
-                client = await pool.connect();
+                client = await getConnection();
                 await client.query('BEGIN');
 
                 const disease_id = examination_session[0].disease_id;
@@ -464,7 +484,7 @@ app.post('/api/:request', async (req, res) => {
 });
 
 async function addNewExaminationSession(data, req, res) {
-    let client = await pool.connect();
+    let client = await getConnection();
     try {
         const { doctor_id, patient_id, session_metrics } = data;
 
@@ -529,7 +549,7 @@ async function addNewExaminationSession(data, req, res) {
     }
 }
 async function updateWeightRow(data, req, res) {
-    let client = await pool.connect();
+    let client = await getConnection();
     try {
         console.log(data)
         const { old_disease_id, old_metric_id, disease_id, metric_id, weight } = data;
@@ -588,7 +608,7 @@ async function updateWeightRow(data, req, res) {
     }
 }
 async function updateSeverityRow(data, req, res) {
-    let client = await pool.connect();
+    let client = await getConnection();
     try {
         console.log(data)
         // const {id, Tmax, Tmin, C} = data;
