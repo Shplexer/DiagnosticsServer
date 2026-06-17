@@ -740,8 +740,8 @@ async function getRowData(tableName, id) {
                 SELECT 
                     users.id as id,
                     users.username as "Логин",
-                    users.password as "Пароль",
-                    users.name as "ФИО",
+                    
+                    
                     roles.name as "Роль",
                     patients.birth_date as "Дата рождения",
                     patients.gender as "Пол"
@@ -812,6 +812,8 @@ async function getRowData(tableName, id) {
                 SELECT 
                     sm.id as "id",
                     es.id as "id сессии тестирования",
+                    es.patient_id as "id пациента",
+                    es.examined_by as "id врача",
                     metrics.name as "Название метрики",
                     sm.metric_id as "id метрики",
                     sm.metric_value as "Числовое значение",
@@ -820,7 +822,7 @@ async function getRowData(tableName, id) {
                 JOIN diag.metrics on metrics.id = sm.metric_id
                 JOIN diag.examination_sessions es on es.id = sm.session_id
                 WHERE es.id = $1
-                ORDER BY es.id ASC
+                ORDER BY sm.id ASC
             `, [sessionId]);
             return result.rows;
         case 'reference-groups':
@@ -964,8 +966,8 @@ async function getFullTableData(tableName, id) {
                 SELECT 
                     users.id AS ID,
                     users.username AS "Логин",
-                    users.password AS "Пароль",
-                    users.name AS "ФИО",
+                    
+                    
                     roles.name AS "Роль"
                 FROM diag.users 
                 JOIN diag.roles ON users.role_id = roles.id
@@ -976,7 +978,7 @@ async function getFullTableData(tableName, id) {
             result = await pool.query(`
                 SELECT 
                     users.id AS "id",
-                    users.name AS "name"
+                    users.id AS "name"
                 FROM diag.users 
                 JOIN diag.roles ON users.role_id = roles.id
                 WHERE roles.id = 3
@@ -987,7 +989,7 @@ async function getFullTableData(tableName, id) {
             result = await pool.query(`
                 SELECT 
                     users.id AS "id",
-                    users.name AS "name"
+                    users.id AS "name"
                 FROM diag.users 
                 JOIN diag.roles ON users.role_id = roles.id
                 WHERE roles.id = 4
@@ -1093,9 +1095,9 @@ async function getFullTableData(tableName, id) {
             query = `
             SELECT 
                 examination_sessions.id as "id",
-                patient.name as "Пациент",
-                doctor.name as "Врач",
-                examination_sessions.examination_date as "Дата проведения тестирования",
+                patient.id as "ID Пациента",
+                doctor.id as "ID Врача",
+                TO_CHAR(examination_sessions.examination_date, 'DD.MM.YYYY HH24:MI:SS') as "Дата проведения тестирования",
                 examination_sessions.device_model as "Аппарат обследования",
                 examination_sessions.software_version as "Версия ПО",
                 CASE 
