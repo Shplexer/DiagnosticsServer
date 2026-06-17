@@ -822,7 +822,7 @@ async function getRowData(tableName, id) {
                 JOIN diag.metrics on metrics.id = sm.metric_id
                 JOIN diag.examination_sessions es on es.id = sm.session_id
                 WHERE es.id = $1
-                ORDER BY sm.id ASC
+                ORDER BY metrics.id ASC
             `, [sessionId]);
             return result.rows;
         case 'reference-groups':
